@@ -23,25 +23,23 @@
 			<p v-if="invitationMessage" class="rp-feedback" role="status">{{ invitationMessage }}</p>
 			<div v-if="invitationUrl" class="invitation-fallback"><BaseTextBox v-model="invitationUrl" label="Ссылка на комнату" readonly hint="Пароль комнаты передайте отдельно. В прототипе ссылка работает только в этом браузере." /></div>
 			<div class="discussion-toolbar">
-				<div class="filter-list" role="group" aria-label="Статус обсуждений">
-					<button v-for="item in filters" :key="item.value" class="filter-button" :class="{ active: filter === item.value }" :aria-pressed="filter === item.value" type="button" @click="filter = item.value">{{ item.label }} <span class="filter-count">{{ items.filter(discussion => discussion.status === item.value).length }}</span></button>
-				</div>
+				<BaseTabs v-model="filter" :items="filterItems" label="Статус обсуждений" />
 				<BaseButton prepend-icon="plus" @click="creating = !creating">{{ creating ? 'Закрыть форму' : 'Новое обсуждение' }}</BaseButton>
 			</div>
 			<form v-if="creating" class="create-form" @submit.prevent="createDiscussion">
 				<h2 class="rp-form-title">Что обсудим?</h2>
 				<BaseTextBox v-model="title" label="Тема обсуждения" placeholder="Например, перейти на четырёхдневную неделю" required :maxlength="160" />
-				<BaseTextBox v-model="description" label="Краткое описание · необязательно" placeholder="Контекст, который поможет вашей команде" :maxlength="1000" />
+				<BaseMemo v-model="description" label="Краткое описание · необязательно" placeholder="Контекст, который поможет вашей команде" :maxlength="1000" />
 				<p v-if="createError" class="rp-form-error" role="alert">{{ createError }}</p>
 				<div class="form-actions"><BaseButton type="submit" :loading="saving">Добавить обсуждение</BaseButton><BaseButton variant="secondary" @click="creating = false">Отмена</BaseButton></div>
 			</form>
 			<div v-if="visibleItems.length" class="discussion-list">
-				<article v-for="discussion in visibleItems" :key="discussion.key" class="discussion-card">
+				<NuxtLink v-for="discussion in visibleItems" :key="discussion.key" class="discussion-card" :to="`/rooms/${room.key}/discussions/${discussion.key}`">
 					<span class="discussion-status" :class="discussion.status">{{ statusLabels[discussion.status] }}</span>
 					<h2 class="discussion-title">{{ discussion.title }}</h2>
 					<p class="discussion-description">{{ discussion.description || 'Контекст пока не добавлен.' }}</p>
 					<div class="argument-summary"><span class="argument-for">+ {{ discussion.argumentsFor }} за</span><span class="argument-against">− {{ discussion.argumentsAgainst }} против</span></div>
-				</article>
+				</NuxtLink>
 			</div>
 			<div v-else class="rp-empty">
 				<img class="rp-empty-illustration" src="/illustrations/discussion.svg" width="480" height="240" alt="">
@@ -49,12 +47,13 @@
 				<p class="rp-empty-description">{{ filter === 'active' ? 'Предложите первую тему — пусть у команды будет с чего начать.' : filter === 'resolved' ? 'Здесь будут обсуждения, в которых вы пришли к общему решению.' : 'Здесь останутся завершённые обсуждения и история ваших решений.' }}</p>
 				<BaseButton v-if="filter === 'active' && !creating" prepend-icon="plus" @click="creating = true">Предложить тему</BaseButton>
 			</div>
-			<p v-if="visibleItems.length" class="rp-next-note">Сейчас можно собрать темы. Аргументы и страница обсуждения — на следующем этапе.</p>
 		</template>
 	</section>
 </template>
 
 <script setup lang="ts">
+import BaseTabs from '~/components/common/base/BaseTabs.vue';
+import BaseMemo from '~/components/common/base/BaseMemo.vue';
 import BaseButton from '~/components/common/base/BaseButton.vue';
 import BaseTextBox from '~/components/common/base/BaseTextBox.vue';
 import { rooms } from '~/services/rooms';
@@ -81,6 +80,7 @@ const filters = [
 	{ value: 'resolved', label: 'Решено' },
 	{ value: 'archived', label: 'Архив' },
 ] as const;
+const filterItems = computed(() => filters.map(item => ({ key: item.value, value: item.label, badge: items.value.filter(discussion => discussion.status === item.value).length })));
 const visibleItems = computed(() => items.value.filter(item => item.status === filter.value));
 useSeoMeta({ title: () => room.value ? `${room.value.name} — Discuss` : 'Комната — Discuss' });
 
@@ -171,10 +171,7 @@ watch(() => route.params.key, () => {
 	.invitation-fallback { margin-bottom: 24px; }
 	.discussion-toolbar {
 		display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px;
-		.filter-list {
-			display: flex; border-bottom: 1px solid var(--color-border);
-			.filter-button { flex: 1; white-space: nowrap; padding: 12px 4px; background: transparent; border: 0; border-bottom: 2px solid transparent; font-size: 12px; color: var(--color-muted); cursor: pointer; &.active { border-bottom-color: var(--color-primary); color: var(--color-primary); } .filter-count { margin-left: 4px; font-size: 10px; } }
-		}
+
 	}
 	.create-form {
 		display: grid; gap: 18px; background: white; padding: 24px; border: 1px solid var(--color-border); border-radius: 16px; margin-bottom: 24px;
@@ -185,7 +182,8 @@ watch(() => route.params.key, () => {
 	.discussion-list {
 		display: grid; gap: 16px;
 		.discussion-card {
-			min-width: 0; padding: 24px; background: white; border: 1px solid var(--color-border); border-radius: 16px;
+			display: block; text-decoration: none; min-width: 0; padding: 24px; background: white; border: 1px solid var(--color-border); border-radius: 16px;
+			&:hover { border-color: #aac5f1; box-shadow: 0 6px 20px #243d680a; }
 			.discussion-status { display: inline-block; padding: 5px 8px; border-radius: 6px; background: #edf3ff; color: #3263b1; font-size: 10px; font-weight: 650; &.resolved { background: #e9f5ee; color: #36765a; } &.archived { background: #f0f2f5; color: #64748b; } }
 			.discussion-title { font-size: 18px; line-height: 1.45; margin: 16px 0 10px; overflow-wrap: anywhere; }
 			.discussion-description { color: var(--color-muted); font-size: 13px; line-height: 1.65; margin: 0; overflow-wrap: anywhere; }
@@ -201,7 +199,7 @@ watch(() => route.params.key, () => {
 	.rp-next-note { font-size: 12px; color: var(--color-muted); text-align: center; line-height: 1.6; margin-top: 24px; }
 	@media (min-width: 768px) {
 		.room-heading { flex-direction: row; justify-content: space-between; align-items: center; }
-		.discussion-toolbar { flex-direction: row; align-items: center; justify-content: space-between; .filter-list { gap: 20px; .filter-button { padding: 14px 8px; } } }
+		.discussion-toolbar { flex-direction: row; align-items: center; justify-content: space-between; .base-tabs { min-width: 290px; } }
 		.discussion-list { grid-template-columns: repeat(2, 1fr); }
 		.rp-empty { padding: 48px; }
 	}

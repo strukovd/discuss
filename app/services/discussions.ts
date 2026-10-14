@@ -4,7 +4,17 @@ import { readDatabase, readSession, writeDatabase } from './mocks/database';
 export const discussions = {
 	async fetch(roomKey: string): Promise<Discussion[]> {
 		if (!readSession(roomKey)) throw new Error('Сначала войдите в комнату.');
-		return readDatabase().discussions.filter(item => item.roomKey === roomKey);
+		const database = readDatabase();
+		return database.discussions.filter(item => item.roomKey === roomKey).map(item => ({
+			...item,
+			argumentsFor: database.arguments.filter(argument => argument.roomKey === roomKey && argument.discussionKey === item.key && argument.side === 'for').length,
+			argumentsAgainst: database.arguments.filter(argument => argument.roomKey === roomKey && argument.discussionKey === item.key && argument.side === 'against').length,
+		}));
+	},
+	async fetchOne(roomKey: string, key: string): Promise<Discussion> {
+		const discussion = (await discussions.fetch(roomKey)).find(item => item.key === key);
+		if (!discussion) throw new Error('Обсуждение не найдено.');
+		return discussion;
 	},
 	async create(roomKey: string, body: { title: string; description: string }): Promise<Discussion> {
 		const database = readDatabase();

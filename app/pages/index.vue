@@ -100,7 +100,10 @@ async function submitEntry() {
 		const room = mode.value === 'create'
 			? await rooms.create({ name: roomName.value, key, password: password.value, guestName: guest })
 			: await rooms.join({ key, password: password.value, guestName: guest });
-		await navigateTo(`/rooms/${room.key}`);
+		const targetDiscussion = typeof route.query.discussion === 'string' ? route.query.discussion : '';
+		await navigateTo(mode.value === 'join' && targetDiscussion
+			? `/rooms/${room.key}/discussions/${encodeURIComponent(targetDiscussion)}`
+			: `/rooms/${room.key}`);
 	} catch (error) {
 		result.value = error instanceof Error ? error.message : 'Не удалось войти. Попробуйте ещё раз.';
 	} finally {
