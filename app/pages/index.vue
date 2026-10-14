@@ -25,11 +25,12 @@
 				<BaseTextBox v-model="roomKey" :label="mode === 'create' ? 'Ключ комнаты · необязательно' : 'Ключ комнаты'" placeholder="our-team" :required="mode === 'join'" :maxlength="64" :error="keyError" :hint="mode === 'create' ? 'Для читаемой ссылки: латинские буквы, цифры и дефис.' : undefined" />
 				<BaseTextBox v-model="password" label="Пароль комнаты" type="password" placeholder="Код для вашей команды" required :maxlength="128" :autocomplete="mode === 'create' ? 'new-password' : 'current-password'" />
 				<BaseTextBox v-model="guestName" label="Как вас называть?" :placeholder="suggestedName" :maxlength="40" hint="Оставьте поле пустым — возьмём предложенное имя.">
-					<template #append><button type="button" class="refresh-name" aria-label="Предложить другое имя" @click="nameIndex = (nameIndex + 1) % guestNames.length">↻</button></template>
+					<template #append><button type="button" class="refresh-name" aria-label="Предложить другое имя" @click="nameIndex = (nameIndex + 1) % guestNames.length"><BaseIcon name="refresh" /></button></template>
 				</BaseTextBox>
-				<BaseButton type="submit">{{ mode === 'create' ? 'Создать комнату' : 'Войти в комнату' }} <span aria-hidden="true">→</span></BaseButton>
-				<p v-if="result" class="ip-result" role="status">{{ result }}</p>
+				<BaseButton type="submit" :loading="submitting" append-icon="arrow-right">{{ mode === 'create' ? 'Создать комнату' : 'Войти в комнату' }}</BaseButton>
+				<p v-if="result" class="ip-result" role="alert">{{ result }}</p>
 			</form>
+			<BaseButton class="demo-button" variant="light" :loading="submitting" @click="openDemo">Посмотреть пример комнаты</BaseButton>
 			<p class="ip-note">Только имя и пароль комнаты.<br>Никаких аккаунтов и лишних шагов.</p>
 		</div>
 		<div class="how-it-works">
@@ -42,13 +43,18 @@
 </template>
 
 <script setup lang="ts">
+import { rooms } from '~/services/rooms';
+import BaseIcon from '~/components/common/base/BaseIcon.vue';
 import BaseButton from '~/components/common/base/BaseButton.vue';
 import BaseTextBox from '~/components/common/base/BaseTextBox.vue';
 
 useSeoMeta({ title: 'Discuss — место для общих решений', description: 'Обсуждайте идеи вместе: аргументы за и против, голосование и общие решения.' });
-const mode = ref<'create' | 'join'>('create');
+const route = useRoute();
+const invitationKey = typeof route.query.room === 'string' ? route.query.room : '';
+const mode = ref<'create' | 'join'>(invitationKey ? 'join' : 'create');
 const roomName = ref('');
-const roomKey = ref('');
+const roomKey = ref(invitationKey);
+const submitting = ref(false);
 const password = ref('');
 const guestName = ref('');
 const guestNames = ['Мятый Барсук', 'Сонный Лис', 'Серьёзный Пингвин', 'Хитрый Енот', 'Мудрая Сова', 'Философствующая Лягушка'];
@@ -70,7 +76,8 @@ function setMode(value: 'create' | 'join') {
 	result.value = '';
 }
 
-function submitEntry() {
+async function submitEntry() {
+	if (submitting.value) return;
 	result.value = '';
 	keyError.value = '';
 	nameError.value = '';
@@ -87,8 +94,32 @@ function submitEntry() {
 		keyError.value = 'Введите ключ комнаты.';
 		return;
 	}
-	const name = guestName.value.trim() || suggestedName.value;
-	result.value = `${name}, форма ${mode.value === 'create' ? 'создания' : 'входа'} заполнена. Сейчас это деморежим: комнаты ещё не создаются, вход не выполняется.`;
+	submitting.value = true;
+	try {
+		const guest = guestName.value.trim() || suggestedName.value;
+		const room = mode.value === 'create'
+			? await rooms.create({ name: roomName.value, key, password: password.value, guestName: guest })
+			: await rooms.join({ key, password: password.value, guestName: guest });
+		await navigateTo(`/rooms/${room.key}`);
+	} catch (error) {
+		result.value = error instanceof Error ? error.message : 'Не удалось войти. Попробуйте ещё раз.';
+	} finally {
+		submitting.value = false;
+	}
+}
+
+async function openDemo() {
+	if (submitting.value) return;
+	submitting.value = true;
+	result.value = '';
+	try {
+		const room = await rooms.join({ key: 'team-demo', password: 'discuss', guestName: guestName.value.trim() || suggestedName.value });
+		await navigateTo(`/rooms/${room.key}`);
+	} catch (error) {
+		result.value = error instanceof Error ? error.message : 'Не удалось открыть пример.';
+	} finally {
+		submitting.value = false;
+	}
 }
 
 watch([roomName, roomKey, password, guestName, nameIndex], () => {
@@ -142,6 +173,7 @@ watch([roomName, roomKey, password, guestName, nameIndex], () => {
 			.base-text-box { .bt-area { .refresh-name { min-width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--color-primary); font-size: 25px; cursor: pointer; &:hover { background: #edf3ff; } } } }
 			.ip-result { margin: 0; padding: 12px; border-radius: 10px; color: #31558a; background: #edf3ff; font-size: 13px; line-height: 1.6; }
 		}
+		.demo-button { width: 100%; margin-top: 12px; }
 		.ip-note { margin: 20px 0 0; text-align: center; font-size: 11px; line-height: 1.7; color: var(--color-muted); }
 	}
 	.how-it-works {
