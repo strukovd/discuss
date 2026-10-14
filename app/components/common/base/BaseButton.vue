@@ -1,13 +1,23 @@
 <template>
-	<button class="base-button" :class="variant" :type="type" :disabled="disabled"><slot /></button>
+	<button class="base-button" :class="[variant, { loading }]" :type="type" :disabled="disabled || loading" :aria-busy="loading">
+		<BaseIcon v-if="loading" class="bb-spinner" name="refresh" />
+		<BaseIcon v-else-if="prependIcon" :name="prependIcon" />
+		<slot />
+		<BaseIcon v-if="appendIcon" :name="appendIcon" />
+	</button>
 </template>
 
 <script setup lang="ts">
+import BaseIcon from './BaseIcon.vue';
+
 withDefaults(defineProps<{
 	variant?: 'primary' | 'secondary' | 'light';
 	type?: 'button' | 'submit' | 'reset';
 	disabled?: boolean;
-}>(), { variant: 'primary', type: 'button', disabled: false });
+	loading?: boolean;
+	prependIcon?: string;
+	appendIcon?: string;
+}>(), { variant: 'primary', type: 'button', disabled: false, loading: false, prependIcon: '', appendIcon: '' });
 </script>
 
 <style lang="scss">
@@ -27,6 +37,9 @@ withDefaults(defineProps<{
 	&.primary { background: var(--color-primary); color: white; &:hover { background: #1c50b8; } }
 	&.secondary { background: white; border-color: var(--color-border); color: #344563; &:hover { background: #f1f5fa; } }
 	&.light { background: #edf3ff; color: var(--color-primary); &:hover { background: #dfeaff; } }
+	.bb-spinner { animation: button-spin 1s linear infinite; }
+	@media (prefers-reduced-motion: reduce) { .bb-spinner { animation: none; } }
 	&:disabled { opacity: .5; cursor: default; }
 }
+@keyframes button-spin { to { transform: rotate(360deg); } }
 </style>
