@@ -14,6 +14,7 @@
 				<p class="dp-description">{{ discussion.description || 'Описание пока не добавлено.' }}</p>
 				<span class="dp-guest">Вы участвуете как {{ guestName }}</span>
 			</header>
+			<DiscussionDecision :key="discussion.key" :discussion="discussion" @updated="discussion = $event; creating = false" />
 			<div class="argument-toolbar">
 				<div class="dp-heading-copy"><h2 class="dp-section-title">Аргументы</h2><p class="dp-section-description">Один довод — одна мысль. Добавьте контекст и источник, если он есть.</p></div>
 				<BaseButton v-if="discussion.status === 'active'" prepend-icon="plus" @click="openArgumentForm('for')">Добавить аргумент</BaseButton>
@@ -52,6 +53,7 @@
 </template>
 
 <script setup lang="ts">
+import DiscussionDecision from '~/components/discussion/DiscussionDecision.vue';
 import ArgumentThread from '~/components/discussion/ArgumentThread.vue';
 import { argumentComments } from '~/services/comments';
 import BaseButton from '~/components/common/base/BaseButton.vue';

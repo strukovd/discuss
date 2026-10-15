@@ -20,13 +20,19 @@ const demoComments: ArgumentComment[] = [
 	{ key: 'demo-comment-limit', roomKey: 'team-demo', discussionKey: 'weekly-demo', argumentKey: 'demo-time', text: 'Да, это снизит нагрузку. Ещё стоит ограничить встречу двадцатью минутами, чтобы она не растягивалась.', author: 'Сонный Лис', createdAt: '2026-10-14T11:15:00Z' },
 ];
 
+const demoDecision = { summary: 'Пробуем среду без плановых встреч в течение месяца.', reason: 'Команда получает время для сосредоточенной работы. Срочные вопросы обсуждаем отдельно, результаты эксперимента оценим через месяц.', author: 'Мудрая Сова', createdAt: '2026-10-14T12:00:00Z' };
+
 export function readDatabase(): MockDatabase {
 	const saved = localStorage.getItem(storageKey);
 	if (saved) {
 		const database: MockDatabase = JSON.parse(saved);
 		// Совместимость с комнатами, созданными до появления аргументов.
 		const argumentsList = database.arguments ?? demoArguments.filter(item => database.discussions.some(discussion => discussion.roomKey === item.roomKey && discussion.key === item.discussionKey));
-		return { ...database, arguments: argumentsList, comments: database.comments ?? demoComments.filter(item => argumentsList.some(argument => argument.roomKey === item.roomKey && argument.discussionKey === item.discussionKey && argument.key === item.argumentKey)) };
+		// Обновляем только отсутствующий итог встроенного примера, сохраняя пользовательские решения и статусы.
+		const discussions = database.discussions.map(discussion => discussion.roomKey === 'team-demo' && discussion.key === 'meeting-free' && discussion.status !== 'active' && !discussion.decision
+			? { ...discussion, decision: demoDecision }
+			: discussion);
+		return { ...database, discussions, arguments: argumentsList, comments: database.comments ?? demoComments.filter(item => argumentsList.some(argument => argument.roomKey === item.roomKey && argument.discussionKey === item.discussionKey && argument.key === item.argumentKey)) };
 	}
 	return {
 		arguments: demoArguments,
@@ -35,7 +41,7 @@ export function readDatabase(): MockDatabase {
 		discussions: [
 			{ key: 'weekly-demo', roomKey: 'team-demo', title: 'Проводить короткое демо каждую неделю', description: 'Делиться результатами работы и получать обратную связь от команды.', status: 'active', argumentsFor: 4, argumentsAgainst: 2 },
 			{ key: 'knowledge-base', roomKey: 'team-demo', title: 'Собрать общую базу знаний', description: 'Хранить полезные материалы и решения в одном месте.', status: 'active', argumentsFor: 6, argumentsAgainst: 1 },
-			{ key: 'meeting-free', roomKey: 'team-demo', title: 'Один день без встреч', description: 'Выделить среду для работы, которая требует сосредоточенности.', status: 'resolved', argumentsFor: 5, argumentsAgainst: 3 },
+			{ key: 'meeting-free', roomKey: 'team-demo', decision: demoDecision, title: 'Один день без встреч', description: 'Выделить среду для работы, которая требует сосредоточенности.', status: 'resolved', argumentsFor: 5, argumentsAgainst: 3 },
 			{ key: 'old-format', roomKey: 'team-demo', title: 'Изменить формат ретроспективы', description: 'Попробовали новый формат и сохранили итоги обсуждения.', status: 'archived', argumentsFor: 3, argumentsAgainst: 2 },
 		],
 	};
