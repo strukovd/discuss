@@ -1,7 +1,8 @@
+import type { ArgumentComment } from '~/types/comment';
 import type { DiscussionArgument } from '~/types/argument';
 import type { Discussion, Room, RoomSession } from '~/types/room';
 
-type MockDatabase = { rooms: (Room & { password: string })[]; discussions: Discussion[]; arguments: DiscussionArgument[] };
+type MockDatabase = { rooms: (Room & { password: string })[]; discussions: Discussion[]; arguments: DiscussionArgument[]; comments: ArgumentComment[] };
 const storageKey = 'discuss:mock:v1';
 const sessionKey = 'discuss:sessions:v1';
 
@@ -14,15 +15,22 @@ const demoArguments: DiscussionArgument[] = [
 	{ key: 'demo-maintenance', roomKey: 'team-demo', discussionKey: 'knowledge-base', side: 'against', title: 'Материалы нужно поддерживать актуальными', description: 'Без регулярного обновления база знаний может вводить команду в заблуждение.', source: '', author: 'Сонный Лис', createdAt: '2026-10-14T09:00:00Z' },
 ];
 
+const demoComments: ArgumentComment[] = [
+	{ key: 'demo-comment-format', roomKey: 'team-demo', discussionKey: 'weekly-demo', argumentKey: 'demo-time', text: 'А если показывать только рабочий результат, без слайдов? Тогда подготовка почти не нужна.', author: 'Хитрый Енот', createdAt: '2026-10-14T11:00:00Z' },
+	{ key: 'demo-comment-limit', roomKey: 'team-demo', discussionKey: 'weekly-demo', argumentKey: 'demo-time', text: 'Да, это снизит нагрузку. Ещё стоит ограничить встречу двадцатью минутами, чтобы она не растягивалась.', author: 'Сонный Лис', createdAt: '2026-10-14T11:15:00Z' },
+];
+
 export function readDatabase(): MockDatabase {
 	const saved = localStorage.getItem(storageKey);
 	if (saved) {
 		const database: MockDatabase = JSON.parse(saved);
 		// Совместимость с комнатами, созданными до появления аргументов.
-		return { ...database, arguments: database.arguments ?? demoArguments.filter(item => database.discussions.some(discussion => discussion.roomKey === item.roomKey && discussion.key === item.discussionKey)) };
+		const argumentsList = database.arguments ?? demoArguments.filter(item => database.discussions.some(discussion => discussion.roomKey === item.roomKey && discussion.key === item.discussionKey));
+		return { ...database, arguments: argumentsList, comments: database.comments ?? demoComments.filter(item => argumentsList.some(argument => argument.roomKey === item.roomKey && argument.discussionKey === item.discussionKey && argument.key === item.argumentKey)) };
 	}
 	return {
 		arguments: demoArguments,
+		comments: demoComments,
 		rooms: [{ key: 'team-demo', name: 'Идеи нашей команды', password: 'discuss', createdAt: '2026-10-14T00:00:00Z' }],
 		discussions: [
 			{ key: 'weekly-demo', roomKey: 'team-demo', title: 'Проводить короткое демо каждую неделю', description: 'Делиться результатами работы и получать обратную связь от команды.', status: 'active', argumentsFor: 4, argumentsAgainst: 2 },

@@ -39,6 +39,8 @@
 							<h4 class="argument-title">{{ argument.title }}</h4>
 							<p v-if="argument.description" class="argument-description">{{ argument.description }}</p>
 							<a v-if="argument.source" class="argument-source" :href="argument.source" target="_blank" rel="noopener noreferrer">Источник <BaseIcon name="arrow-right" /></a>
+							<button type="button" class="argument-discuss" :aria-expanded="expandedArgument === argument.key" :aria-controls="`${threadId}-${argument.key}`" @click="expandedArgument = expandedArgument === argument.key ? null : argument.key">{{ expandedArgument === argument.key ? 'Свернуть обсуждение' : 'Обсудить довод' }} <span class="argument-comment-count">{{ commentCounts[argument.key] ?? 0 }}</span></button>
+							<ArgumentThread :id="`${threadId}-${argument.key}`" :room-key="roomKey" :discussion-key="discussionKey" :argument-key="argument.key" :open="expandedArgument === argument.key" :readonly="discussion.status !== 'active'" @count="commentCounts[argument.key] = $event" />
 						</article>
 						<div v-if="!items.some(item => item.side === side.key)" class="column-empty"><span class="empty-symbol" aria-hidden="true">{{ side.key === 'for' ? '+' : '−' }}</span><h4 class="empty-title">{{ side.key === 'for' ? 'Что поддерживает идею?' : 'Какие есть сомнения?' }}</h4><p class="empty-description">{{ side.key === 'for' ? 'Здесь будут доводы в пользу предложения.' : 'Здесь будут риски и доводы против предложения.' }}</p></div>
 					</div>
@@ -50,6 +52,8 @@
 </template>
 
 <script setup lang="ts">
+import ArgumentThread from '~/components/discussion/ArgumentThread.vue';
+import { argumentComments } from '~/services/comments';
 import BaseButton from '~/components/common/base/BaseButton.vue';
 import BaseIcon from '~/components/common/base/BaseIcon.vue';
 import BaseTabs from '~/components/common/base/BaseTabs.vue';
@@ -68,6 +72,9 @@ const room = ref<Room | null>(null);
 const discussion = ref<Discussion | null>(null);
 const items = ref<DiscussionArgument[]>([]);
 const guestName = ref('');
+const threadId = useId();
+const expandedArgument = ref<string | null>(null);
+const commentCounts = ref<Record<string, number>>({});
 const loading = ref(true);
 const loadError = ref('');
 const creating = ref(false);
@@ -94,6 +101,7 @@ async function loadDiscussion() {
 		guestName.value = data.session.guestName;
 		discussion.value = await discussions.fetchOne(roomKey.value, discussionKey.value);
 		items.value = await discussionArguments.fetch(roomKey.value, discussionKey.value);
+		commentCounts.value = await argumentComments.counts(roomKey.value, discussionKey.value);
 	} catch (error) {
 		if (error instanceof Error && error.message === 'Войдите в комнату с её паролем.') {
 			await navigateTo({ path: '/', query: { room: roomKey.value, discussion: discussionKey.value } }, { replace: true });
@@ -139,6 +147,8 @@ watch([roomKey, discussionKey], () => {
 	room.value = null;
 	discussion.value = null;
 	items.value = [];
+	expandedArgument.value = null;
+	commentCounts.value = {};
 	creating.value = false;
 	title.value = '';
 	description.value = '';
@@ -190,6 +200,7 @@ watch([roomKey, discussionKey], () => {
 					.argument-meta { display: flex; align-items: center; gap: 8px; .argument-avatar { flex-shrink: 0; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #edf3ff; color: #3263b1; font-size: 10px; } .argument-author { font-size: 11px; color: var(--color-muted); overflow-wrap: anywhere; } }
 					.argument-title { margin: 16px 0 10px; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
 					.argument-description { margin: 0; color: var(--color-muted); font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+					.argument-discuss { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 18px; padding: 0; border: 0; background: transparent; color: var(--color-primary); font-size: 12px; cursor: pointer; &:hover { text-decoration: underline; } .argument-comment-count { padding: 3px 7px; border-radius: 6px; background: #edf3ff; font-size: 10px; } }
 					.argument-source { display: inline-flex; gap: 6px; align-items: center; margin-top: 16px; font-size: 12px; color: var(--color-primary); text-decoration: none; &:hover { text-decoration: underline; } }
 				}
 				.column-empty { padding: 36px 24px; border: 1px dashed var(--color-border); border-radius: 14px; text-align: center; .empty-symbol { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #e9f5ee; color: #36765a; font-size: 26px; } .empty-title { font-size: 16px; margin: 16px 0 8px; } .empty-description { font-size: 13px; color: var(--color-muted); line-height: 1.6; margin: 0; } }
